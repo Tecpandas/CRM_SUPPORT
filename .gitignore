@@ -1,0 +1,8 @@
+node_modules/
+frontend/dist/
+backend/.venv/
+backend/support_crm.db
+backend/__pycache__/
+backend/.env
+frontend/.env
+
