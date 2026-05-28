@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
+import PriorityBadge from "../components/PriorityBadge";
 import StatusBadge from "../components/StatusBadge";
 import Toast from "../components/Toast";
-import { listTickets, type TicketListItem, type TicketStatus } from "../lib/api";
+import { listTickets, type TicketListItem, type TicketPriority, type TicketStatus } from "../lib/api";
 
 function formatDate(iso: string) {
   const d = new Date(iso);
@@ -40,6 +41,7 @@ function StatCard({
 
 export default function TicketListPage() {
   const [status, setStatus] = useState<TicketStatus | "">("");
+  const [priority, setPriority] = useState<TicketPriority | "">("");
   const [search, setSearch] = useState("");
   const [items, setItems] = useState<TicketListItem[]>([]);
   const [allItems, setAllItems] = useState<TicketListItem[]>([]);
@@ -49,7 +51,7 @@ export default function TicketListPage() {
 
   const debounceRef = useRef<number | null>(null);
 
-  const query = useMemo(() => ({ status, search }), [status, search]);
+  const query = useMemo(() => ({ status, priority, search }), [status, priority, search]);
 
   useEffect(() => {
     setLoading(true);
@@ -57,7 +59,10 @@ export default function TicketListPage() {
 
     const run = async () => {
       try {
-        const [data, all] = await Promise.all([listTickets(query), listTickets({ status: "", search: "" })]);
+        const [data, all] = await Promise.all([
+          listTickets(query),
+          listTickets({ status: "", priority: "", search: "" }),
+        ]);
         setItems(data);
         setAllItems(all);
       } catch (e) {
@@ -80,7 +85,9 @@ export default function TicketListPage() {
       total: base.length,
       open: base.filter((t) => t.status === "Open").length,
       progress: base.filter((t) => t.status === "In Progress").length,
+      urgent: base.filter((t) => t.priority === "Urgent").length,
       closed: base.filter((t) => t.status === "Closed").length,
+      replies: base.reduce((sum, ticket) => sum + ticket.customer_replies_count, 0),
     };
   }, [allItems, items]);
 
@@ -100,26 +107,37 @@ export default function TicketListPage() {
       <div className="card p-4">
         <div className="min-w-0">
           <div className="text-base font-semibold">Tickets</div>
-          <div className="text-sm text-slate-600">Search, filter, and track customer issues.</div>
+          <div className="text-sm text-slate-600">Search, filter, and route customer requests across the support team.</div>
         </div>
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by ID, name, email, subject, description…"
-            className="w-full rounded-lg border bg-white px-3 py-2 text-sm outline-none ring-slate-200 placeholder:text-slate-400 focus:ring-2 sm:w-[360px]"
-          />
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value as TicketStatus | "")}
-            className="rounded-lg border bg-white px-3 py-2 text-sm outline-none ring-slate-200 focus:ring-2"
-          >
-            <option value="">All statuses</option>
-            <option value="Open">Open</option>
-            <option value="In Progress">In Progress</option>
-            <option value="Closed">Closed</option>
-          </select>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by ID, order, name, email, subject, description, assign…"
+              className="w-full rounded-lg border bg-white px-3 py-2 text-sm outline-none ring-slate-200 placeholder:text-slate-400 focus:ring-2 sm:w-[360px]"
+            />
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as TicketStatus | "")}
+              className="rounded-lg border bg-white px-3 py-2 text-sm outline-none ring-slate-200 focus:ring-2"
+            >
+              <option value="">All statuses</option>
+              <option value="Open">Open</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Closed">Closed</option>
+            </select>
+            <select
+              value={priority}
+              onChange={(e) => setPriority(e.target.value as TicketPriority | "")}
+              className="rounded-lg border bg-white px-3 py-2 text-sm outline-none ring-slate-200 focus:ring-2"
+            >
+              <option value="">All priorities</option>
+              <option value="Urgent">Urgent</option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+            </select>
           </div>
           <Link
             to="/tickets/new"
@@ -130,11 +148,12 @@ export default function TicketListPage() {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard label="Total" value={counts.total} tone="slate" />
         <StatCard label="Open" value={counts.open} tone="blue" />
         <StatCard label="In Progress" value={counts.progress} tone="amber" />
-        <StatCard label="Closed" value={counts.closed} tone="emerald" />
+        <StatCard label="Urgent" value={counts.urgent} tone="emerald" />
+        <StatCard label="Customer replies" value={counts.replies} tone="slate" />
       </div>
 
       {error ? (
@@ -145,8 +164,8 @@ export default function TicketListPage() {
         <div className="grid grid-cols-12 border-b bg-slate-50/70 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
           <div className="col-span-2">Ticket</div>
           <div className="col-span-3">Customer</div>
-          <div className="col-span-4">Subject</div>
-          <div className="col-span-1">Status</div>
+          <div className="col-span-3">Subject</div>
+          <div className="col-span-2">Assigned</div>
           <div className="col-span-2 text-right">Created</div>
         </div>
 
@@ -168,32 +187,37 @@ export default function TicketListPage() {
             {items.map((t) => (
               <div
                 key={t.ticket_id}
-                className="grid grid-cols-12 items-center px-4 py-3 text-sm hover:bg-slate-50"
+                className="grid grid-cols-12 items-center gap-3 px-4 py-3 text-sm hover:bg-slate-50"
               >
-                <div className="col-span-2 flex items-center gap-2">
-                  <Link to={`/tickets/${t.ticket_id}`} className="font-medium text-slate-900 hover:underline">
-                    {t.ticket_id}
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      void copy(t.ticket_id);
-                    }}
-                    className="rounded-md border bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
-                    title="Copy ticket ID"
-                  >
-                    Copy
-                  </button>
+                <div className="col-span-2 flex flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <Link to={`/tickets/${t.ticket_id}`} className="font-medium text-slate-900 hover:underline">
+                      {t.ticket_id}
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        void copy(t.ticket_id);
+                      }}
+                      className="rounded-md border bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                      title="Copy ticket ID"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                  {t.order_number ? (
+                    <div className="text-xs text-slate-500">Order: {t.order_number}</div>
+                  ) : null}
                 </div>
                 <div className="col-span-3 truncate text-slate-700">{t.customer_name}</div>
-                <div className="col-span-4 truncate text-slate-700">
-                  <Link to={`/tickets/${t.ticket_id}`} className="hover:underline">
-                    {t.subject}
-                  </Link>
+                <div className="col-span-3">
+                  <div className="font-medium text-slate-900 truncate">{t.subject}</div>
+                  <div className="mt-1 text-xs text-slate-500">{t.priority} priority</div>
                 </div>
-                <div className="col-span-1">
-                  <StatusBadge status={t.status} />
+                <div className="col-span-2 flex flex-col gap-1 text-sm text-slate-600">
+                  <div>{t.assigned_to || "Unassigned"}</div>
+                  <div className="text-xs text-slate-500">{t.assigned_team || "No team"}</div>
                 </div>
                 <div className="col-span-2 text-right text-slate-600">{formatDate(t.created_at)}</div>
               </div>

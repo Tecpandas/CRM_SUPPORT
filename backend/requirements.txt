@@ -1,5 +1,6 @@
- fastapi
- uvicorn[standard]
- sqlmodel
- pydantic
+fastapi
+uvicorn[standard]
+sqlmodel
+pydantic
 email-validator
+python-multipart
