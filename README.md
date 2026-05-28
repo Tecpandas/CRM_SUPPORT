@@ -1,15 +1,16 @@
 # Support CRM System
 
-A modern, full-stack **Customer Support Ticketing CRM** built for fast issue tracking and easy collaboration.
+A modern, full-stack **Customer Support Ticketing CRM** built for fast issue tracking and easy collaboration.  
 This project includes:
 - **Backend** with FastAPI, SQLModel, and SQLite
 - **Frontend** with React, Vite, and Tailwind CSS
-- **Simple workflow** for creating, searching, filtering, viewing, and updating support tickets
+- **Support agent authentication**
+- **Ticket assignment, team routing, and attachments**
+- **Customer reply tracking**
 
 ## Problem Statement
 
-Support teams need a lightweight tool to manage customer requests without heavyweight enterprise systems.
-Existing solutions can be slow, overly complex, or missing the key workflow for rapid ticket triage and customer follow-up.
+Support teams need a lightweight tool to manage customer requests without heavyweight enterprise systems. Existing solutions can be slow, overly complex, or miss the key workflow for rapid ticket triage, assignment, and follow-up.
 
 ## Solution
 
@@ -21,82 +22,93 @@ This project delivers a clean support ticket CRM that is:
 
 ## What makes this project unique
 
-- **Search-as-you-type experience** with backend-powered filtering across ticket ID, customer name, email, subject, and description.
-- **Dashboard-style ticket summary** showing total tickets plus status/priority breakdowns.
-- **Light but realistic data model** with tickets and notes, avoiding over-engineering while still supporting real support workflows.
-- **Rich ticket detail view**: update status, change priority, and add internal notes all from the same page.
-- **Copy ticket ID action** for fast sharing during triage.
+- **Support agent authentication** with token-based headers
+- **Ticket assignment and team routing** for realistic help desk workflows
+- **Notes with author and visibility metadata** for internal vs customer-facing updates
+- **File attachments** on tickets
+- **Customer reply tracking** with reply counts and last reply timestamp
+- **Search-as-you-type experience** with backend-powered filtering across ticket ID, customer name, email, subject, and description
+- **Rich ticket detail view**: update status, change priority, assign agents, upload files, and add notes from one page
 
 ## Key UI pages
 
-### 1. Ticket list page
+### 1. Agent Login page
+
+Sign in with your support agent credentials to access the CRM.
+
+<img width="1310" height="830" alt="Agent login page" src="https://github.com/user-attachments/assets/24e2361e-3a8e-411c-aa66-446bd8b099e5" />
+
+### 2. Ticket list page
 
 This page is the main support dashboard:
 - Search tickets live
 - Filter by status and priority
-- View ticket summaries and status badges
+- View assigned agent and team
+- See customer reply count
 - Quickly navigate to details or create a new ticket
 
-![Ticket list page](./screenshots/ticket-list.png)
+<img width="1287" height="736" alt="Ticket list page" src="https://github.com/user-attachments/assets/4c03fb91-9bf6-4eaf-9265-deba8c01c67a" />
 
-### 2. New ticket page
+### 3. New ticket page
 
 A simple form to create a new support request:
 - customer name and email
 - optional order number
 - priority selection
+- optional assigned agent and team
 - subject and issue description
 
-![New ticket page](./screenshots/new-ticket.png)
+<img width="1278" height="749" alt="New ticket page" src="https://github.com/user-attachments/assets/0368d97d-c2dd-417e-8263-75a17936925a" />
 
-### 3. Ticket detail page
+### 4. Ticket detail page
 
 Inspect and update a ticket:
 - see ticket metadata and timestamps
 - change status and priority
-- add internal notes
-- review existing notes history
-
-![Ticket detail page](./screenshots/ticket-detail.png)
-
-> Note: Add screenshot files at `./screenshots/ticket-list.png`, `./screenshots/new-ticket.png`, and `./screenshots/ticket-detail.png` to enable these previews.
+- reassign an agent or support team
+- upload attachments
+- add notes with visibility settings
+- review note history and file attachments
 
 ## How it works
 
 ### Backend flow
 
-1. The frontend calls the API under `backend/app`
-2. Tickets are stored in SQLite using SQLModel
-3. Ticket IDs are generated sequentially like `TKT-001`
-4. Search and filter parameters are passed to `GET /api/tickets`
-5. Ticket updates and notes are handled by `PUT /api/tickets/{ticket_id}`
+1. The frontend calls the API under app
+2. Support agents authenticate with `POST /api/agents/login`
+3. Authenticated requests include:
+   - `Authorization: Bearer <token>`
+   - `X-Agent-Email: <email>`
+4. Tickets are stored in SQLite using SQLModel
+5. Ticket updates, notes, and attachments are handled by the API
 
 ### Frontend flow
 
 1. The app loads the ticket list from the backend
-2. Filters and search terms are debounced so the UI stays responsive
+2. Filters and search terms are applied in the API query
 3. Clicking a ticket opens the detail page
-4. Status, priority, and note changes are saved immediately
-5. The app refreshes the ticket detail after every update
+4. Agents can update status, priority, assignment, notes, and attachments
+5. The app refreshes ticket detail after each update
 
 ## Project structure
 
-- `backend/`
+- backend
   - `app/main.py` — FastAPI application entry point
   - `app/db.py` — database session and connection logic
-  - `app/models.py` — SQLModel ORM models for tickets and notes
+  - `app/models.py` — SQLModel ORM models for tickets, notes, and attachments
   - `app/schemas.py` — request/response schemas
-- `frontend/`
+- frontend
   - `src/App.tsx` — application routes and layout
-  - `src/pages/` — page components for list, create, and detail
+  - `src/pages/` — page components for list, create, detail, and login
   - `src/lib/api.ts` — API client and types
+  - `src/lib/auth.ts` — client-side auth helpers
   - `src/components/` — reusable UI components
 
 ## Tech stack
 
 - **Frontend**: React, TypeScript, Vite, Tailwind CSS
 - **Backend**: FastAPI, SQLModel, Uvicorn, SQLite
-- **Development**: npm/yarn for frontend, pip for backend
+- **Development**: npm for frontend, pip for backend
 
 ## Setup instructions
 
@@ -127,36 +139,38 @@ npm run dev
 
 Open the app at `http://localhost:5173`.
 
+## Authentication
+
+This backend uses environment-driven support agent credentials via `SUPPORT_AGENTS`.  
+Default built-in agent:
+
+- `Agent email`: `priya@example.com`
+- `Agent token`: `support123`
+
 ## API endpoints
 
+- `POST /api/agents/login` — authenticate support agents
 - `POST /api/tickets` — create a new ticket
-- `GET /api/tickets` — list tickets with optional `status`, `priority`, and `search` parameters
+- `GET /api/tickets` — list tickets with optional `status`, `priority`, and `search`
 - `GET /api/tickets/{ticket_id}` — retrieve a single ticket detail
-- `PUT /api/tickets/{ticket_id}` — update ticket status/priority and add notes
+- `PUT /api/tickets/{ticket_id}` — update ticket status, priority, assignment, team, and notes
+- `POST /api/tickets/{ticket_id}/attachments` — upload attachments
 
 ## Recommended workflow
 
 1. Start the backend and frontend locally
-2. Create a new ticket from the form
-3. Use search and filters on the ticket list
-4. Open a ticket detail view to update status and add notes
-5. Verify that changes persist and the updated ticket is returned
+2. Sign in as an agent
+3. Create a new ticket from the form
+4. Use search and filters on the ticket list
+5. Open a ticket detail view to update status, assignment, notes, or upload attachments
 
 ## Notes for improvement
 
-- Add authentication for support agents
-- Persist notes with author and visibility metadata
-- Add ticket assignment and team routing
-- Support file attachments and customer reply tracking
-
-## Screenshots
-
-Add actual screenshots to the `screenshots/` folder and keep the filenames:
-- `ticket-list.png`
-- `new-ticket.png`
-- `ticket-detail.png`
+- Add more robust agent roles and session expiration
+- Add customer-facing notification/email integration
+- Improve attachment validation and file type restrictions
+- Add audit history and role-based access controls
 
 ## License
 
 This project is provided for learning and support workflow demonstration.
-
