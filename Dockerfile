@@ -24,6 +24,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend/app ./app
 
+COPY backend/uploads ./uploads
+
 COPY --from=frontend /app/frontend/dist ./frontend_dist
 
 EXPOSE 5000
